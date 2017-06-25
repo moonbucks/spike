@@ -8,6 +8,7 @@ riscv_install_prog_srcs = \
 
 riscv_hdrs = \
 	common.h \
+    tree.h \
 	decode.h \
 	devices.h \
 	disasm.h \
@@ -17,6 +18,7 @@ riscv_hdrs = \
 	trap.h \
 	encoding.h \
 	cachesim.h \
+    oramsim.h \
 	memtracer.h \
 	tracer.h \
 	extension.h \
@@ -36,6 +38,7 @@ riscv_srcs = \
 	interactive.cc \
 	trap.cc \
 	cachesim.cc \
+    oramsim.cc \
 	mmu.cc \
 	disasm.cc \
 	extension.cc \

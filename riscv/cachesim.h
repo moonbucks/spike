@@ -8,6 +8,7 @@
 #include <string>
 #include <map>
 #include <cstdint>
+#include <oramsim.h>
 
 class lfsr_t
 {
@@ -29,6 +30,7 @@ class cache_sim_t
   void access(uint64_t addr, size_t bytes, bool store);
   void print_stats();
   void set_miss_handler(cache_sim_t* mh) { miss_handler = mh; }
+  void set_oram_handler(oram_sim_t* oh) { oram_handler = oh; }
 
   static cache_sim_t* construct(const char* config, const char* name);
 
@@ -41,6 +43,7 @@ class cache_sim_t
 
   lfsr_t lfsr;
   cache_sim_t* miss_handler;
+  oram_sim_t* oram_handler;
 
   size_t sets;
   size_t ways;
@@ -56,6 +59,7 @@ class cache_sim_t
   uint64_t write_misses;
   uint64_t bytes_written;
   uint64_t writebacks;
+  uint64_t oram_accesses;
 
   std::string name;
 
