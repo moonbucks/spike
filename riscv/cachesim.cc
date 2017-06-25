@@ -56,8 +56,10 @@ void cache_sim_t::init()
   write_misses = 0;
   bytes_written = 0;
   writebacks = 0;
+  oram_accesses = 0;
 
   miss_handler = NULL;
+  oram_handler = NULL;
 }
 
 cache_sim_t::cache_sim_t(const cache_sim_t& rhs)
@@ -98,6 +100,9 @@ void cache_sim_t::print_stats()
   std::cout << "Writebacks:            " << writebacks << std::endl;
   std::cout << name << " ";
   std::cout << "Miss Rate:             " << mr << '%' << std::endl;
+  std::cout << name << " ";
+  std::cout << "ORAM accesses:         " << oram_accesses << std::endl;
+
 }
 
 uint64_t* cache_sim_t::check_tag(uint64_t addr)
@@ -126,6 +131,7 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
   store ? write_accesses++ : read_accesses++;
   (store ? bytes_written : bytes_read) += bytes;
 
+  // hit
   uint64_t* hit_way = check_tag(addr);
   if (likely(hit_way != NULL))
   {
@@ -134,6 +140,7 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
     return;
   }
 
+  // miss
   store ? write_misses++ : read_misses++;
 
   uint64_t victim = victimize(addr);
@@ -148,6 +155,11 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
 
   if (miss_handler)
     miss_handler->access(addr & ~(linesz-1), linesz, false);
+  else if (oram_handler) {
+    // only for: addr >= DRAM_BASE && addr < DRAM_BASE + memsze 
+    oram_accesses++;
+    oram_handler->access(addr, linesz, false);
+  }
 
   if (store)
     *check_tag(addr) |= DIRTY;
