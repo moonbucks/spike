@@ -19,6 +19,8 @@ class oram_sim_t
   static oram_sim_t* construct(const char* config);
 
  protected:
+  void print_stash();
+  void print_path(uint64_t leaf);
   bool block_is_in_stash(uint64_t block_id);
   uint64_t get_block_id(uint64_t addr);
   void load_path_to_stash(uint64_t leaf);

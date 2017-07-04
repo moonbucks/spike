@@ -131,6 +131,7 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
   store ? write_accesses++ : read_accesses++;
   (store ? bytes_written : bytes_read) += bytes;
 
+
   // hit
   uint64_t* hit_way = check_tag(addr);
   if (likely(hit_way != NULL))
@@ -155,8 +156,11 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
 
   if (miss_handler)
     miss_handler->access(addr & ~(linesz-1), linesz, false);
-  else if (oram_handler) {
+  else if (oram_handler && addr >= 0x80000000 && addr < (0x80000000 + 4194304)) {
     // only for: addr >= DRAM_BASE && addr < DRAM_BASE + memsze 
+    std::cout << std::hex << addr ;
+    std::cout << " " << name << " " << std::endl;
+
     oram_accesses++;
     oram_handler->access(addr, linesz, false);
   }

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#define DEBUG 1
 
 oram_sim_t::oram_sim_t(size_t _blocksz, size_t _stashsz)
  : blocksz(_blocksz), stashsz(_stashsz)
@@ -44,12 +45,15 @@ void oram_sim_t::init()
     oram_tree[i] = -1;
   }
 
+  for (uint64_t i=0; i< stashsz; i++) {
+    stash[i] = 0;
+  }
+
   // all the blocks are mapped into leaves
   uint64_t leafid, bid;
   for (leafid = tree_leaves, bid = 0; leafid <= tree_nodes; leafid++, bid++) {
     oram_tree[leafid] = bid;
     position_map[bid] = leafid;
-    bid++;
   }
 
   // ---------------------------------------------------------------------
@@ -59,6 +63,16 @@ void oram_sim_t::init()
   stash_miss = 0;
   write_accesses = 0;
   read_accesses = 0;
+
+  if (DEBUG) {
+    std::cout << "init() " << std::endl;
+
+    std::cout << "printing position map : bid -> leaf_id" << std::endl;
+    for (bid = 0; bid < 16384; bid++) {
+        std::cout << "block " << std::dec << bid << " -> " << position_map[bid] << std::endl;
+    }
+
+  }
 }
 
 /*
@@ -90,6 +104,25 @@ bool oram_sim_t::block_is_in_stash(uint64_t block_id)
     return false;
 }
 
+void oram_sim_t::print_path(uint64_t leaf)
+{
+    std::cout << "Printing path to leaf" << std::dec << leaf << std::endl ; 
+    std::cout << "| " ;
+}
+
+void oram_sim_t::print_stash()
+{
+    int i;
+    std::cout << "Printing stash,,," << std::endl ; 
+    std::cout << "| " ;
+    for (i=0; i<(int)stashsz; i++) {
+        uint64_t d = stash[i];
+        if (d == (uint64_t)-1) std::cout << std::dec << "-1" << " | ";
+        else std::cout << std::dec << stash[i] << " | ";
+    }
+    std::cout << std::endl;
+}
+
 uint64_t oram_sim_t::get_block_id(uint64_t addr) 
 {
     // hardcoded
@@ -117,6 +150,8 @@ void oram_sim_t::load_path_to_stash(uint64_t leaf)
 
 void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf)
 {
+    if (DEBUG) std::cout << "stash write back.. " << std::endl;
+
     int cur_height, nearest_ancestor=1;
     int nid_from_new_leaf, nid_from_cur_leaf;
 
@@ -142,7 +177,12 @@ void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf
             break;
         }
     }
- 
+
+    if (DEBUG) {
+        std::cout << "nearest ancestor node id: " << std::dec << nearest_ancestor << std::endl;
+        std::cout << std::dec << "nearest ancestor height: " << cur_height << std::endl;
+    }
+
     bool found = false, stash_overflow = false; 
     // check stash if there is an empty bucket and move the block to new place
     for ( sid= cur_height; sid>=0; sid--) {
@@ -153,6 +193,10 @@ void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf
         }
     }
 
+    if (DEBUG) {
+        std::cout << "After reshuffling the stash, ";
+        print_stash();
+    }
 
     // bring blocks from evicted blocks
     for (sid= tree_height; sid < stashsz; sid++) {
@@ -167,7 +211,13 @@ void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf
         }
     }
 
+    if (DEBUG) {
+        std::cout << "After bring evicted blocks, ";
+        print_stash();
+    }
+
     if (!found) {
+        // TODO Here is a bug
         // this block cannot be write back. leave this block to stash
         for (sid= tree_height; sid < stashsz; sid++) {
             if (stash[sid] == (uint64_t) -1) {
@@ -181,17 +231,24 @@ void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf
         }
     }
 
-    if (stash_overflow) {
-        // TODO abort..  
-    }
+    if (stash_overflow) std::cout << "Stash overflow! " << std::endl;
+    assert( !stash_overflow );
 
     // write back to oram tree and clear the stash on index 0..tree_height
-    int cur; 
-    for (sid= tree_height, cur=leaf; sid>=0; sid--) {
-        oram_tree[cur] = stash[sid];
-        stash[sid] = -1;
+    int cur, stack_cursor; 
+    for (stack_cursor= tree_height, cur=leaf; stack_cursor>=0; stack_cursor--) {
+        oram_tree[cur] = stash[stack_cursor];
+        stash[stack_cursor] = -1;
+        std::cout << std::dec << "sid: " << stack_cursor << ", cur_node: " << cur 
+            << " contains block: " << (int64_t)oram_tree[cur] << std::endl;
+
         cur = cur / 2;
     } 
+
+    if (DEBUG) {
+        std::cout << "After bring evicted blocks, ";
+        print_stash();
+    }
 
 }
 
@@ -199,26 +256,36 @@ void oram_sim_t::access(uint64_t addr, size_t bytes, bool store)
 {
     oram_accesses++;
     uint64_t block_id = get_block_id(addr);
-    //assert ( block_id >= 0 );
-    //assert ( block_id < 16384 ); 
-    // ?? why not work??
+
+    assert ( block_id >= 0 );
+    assert ( block_id < 16384 ); 
 
     uint64_t leaf, new_leaf;
 
-    if ( block_is_in_stash(block_id) ) 
+    if ( block_is_in_stash(block_id) ) { 
+        if (DEBUG) std::cout << "stash hit at " << std::hex << addr << "(bid=" <<std::dec << block_id << ")" << std::endl;
         stash_hit++;
+    }
     else {
+        if (DEBUG) std::cout << "stash miss at " << std::hex << addr << std::endl;
         stash_miss++;
 
         // find leaf id from position map
         leaf = position_map[block_id];
+        if (DEBUG) std::cout << std::hex << addr << "(bid=" << std::dec << block_id << ") stored in leaf id: " << std::dec << leaf << " (leaf range: " << tree_leaves << " ~ " << tree_nodes << " ) " << std::endl; 
 
         // assign to a random new leaf
         new_leaf = rand() % tree_leaves + tree_leaves;
         position_map[block_id] = new_leaf;
+        if (DEBUG) std::cout << std::hex << addr << "(bid=" << std::dec << block_id << ") assigned to a new leaf: " << std::dec <<  new_leaf << " (leaf range: " << tree_leaves << " ~ " << tree_nodes << ")" <<  std::endl;
 
         // load the entire path to stash
         load_path_to_stash(leaf);
+
+        if(DEBUG) { 
+            std::cout << "Path to leaf: " << std::dec << leaf << " is loaded to stash " << std::endl;
+            print_stash();
+        }
 
         // not "access++", but "request++"
         // store ? write_accesses++ : read_accesses++;
