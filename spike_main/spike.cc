@@ -4,6 +4,7 @@
 #include "mmu.h"
 #include "gdbserver.h"
 #include "cachesim.h"
+#include "oramsim.h"
 #include "extension.h"
 #include <dlfcn.h>
 #include <fesvr/option_parser.h>
@@ -44,12 +45,15 @@ int main(int argc, char** argv)
   bool dump_config_string = false;
   size_t nprocs = 1;
   size_t mem_mb = 0;
+  //size_t blocksz = 4; // default oram block size is 4;
   std::unique_ptr<icache_sim_t> ic;
   std::unique_ptr<dcache_sim_t> dc;
   std::unique_ptr<cache_sim_t> l2;
+  std::unique_ptr<oram_sim_t> oram;
   std::function<extension_t*()> extension;
   const char* isa = DEFAULT_ISA;
   uint16_t gdb_port = 0;
+
 
   option_parser_t parser;
   parser.help(&help);
@@ -59,12 +63,14 @@ int main(int argc, char** argv)
   parser.option('l', 0, 0, [&](const char* s){log = true;});
   parser.option('p', 0, 1, [&](const char* s){nprocs = atoi(s);});
   parser.option('m', 0, 1, [&](const char* s){mem_mb = atoi(s);});
+  //parser.option('o', 0, 1, [&](const char* s){blocksz = atoi(s); oram.reset(new oram_sim_t(blocksz, 20));}); 
   // I wanted to use --halted, but for some reason that doesn't work.
   parser.option('H', 0, 0, [&](const char* s){halted = true;});
   parser.option(0, "gdb-port", 1, [&](const char* s){gdb_port = atoi(s);});
   parser.option(0, "ic", 1, [&](const char* s){ic.reset(new icache_sim_t(s));});
   parser.option(0, "dc", 1, [&](const char* s){dc.reset(new dcache_sim_t(s));});
   parser.option(0, "l2", 1, [&](const char* s){l2.reset(cache_sim_t::construct(s, "L2$"));});
+  parser.option(0, "o", 1, [&](const char* s){oram.reset(oram_sim_t::construct(s));}); 
   parser.option(0, "isa", 1, [&](const char* s){isa = s;});
   parser.option(0, "extension", 1, [&](const char* s){extension = find_extension(s);});
   parser.option(0, "dump-config-string", 0, [&](const char *s){dump_config_string = true;});
@@ -95,6 +101,7 @@ int main(int argc, char** argv)
 
   if (ic && l2) ic->set_miss_handler(&*l2);
   if (dc && l2) dc->set_miss_handler(&*l2);
+  if (l2 && oram) l2->set_oram_handler(&*oram);
   for (size_t i = 0; i < nprocs; i++)
   {
     if (ic) s.get_core(i)->get_mmu()->register_memtracer(&*ic);
