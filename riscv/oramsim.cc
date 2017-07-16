@@ -6,8 +6,8 @@
 #include <cmath>
 #define DEBUG 0
 
-oram_sim_t::oram_sim_t(size_t _blocksz, size_t _stashsz)
- : blocksz(_blocksz), stashsz(_stashsz)
+oram_sim_t::oram_sim_t(size_t _bucketsz, size_t _stashsz, size_t _mem_mb, size_t _cacheline_sz)
+ : bucketsz(_bucketsz), stashsz(_stashsz), mem_mb(_mem_mb), cacheline_sz(_cacheline_sz)
 {
   init();
 }
@@ -17,26 +17,40 @@ static void help()
   exit(1);
 }
 
-oram_sim_t* oram_sim_t::construct(const char* config)
+oram_sim_t* oram_sim_t::construct(const char* config, size_t mem_mb)
 {
   const char* wp = strchr(config, ':');
   if (!wp++) help();
+  const char* bp = strchr(wp, ':');
+  if (!bp++) help();
 
-  size_t blocksz = atoi(std::string(config, wp).c_str());
-  size_t stashsz = atoi(wp);
+  size_t bucketsz = atoi(std::string(config, wp).c_str());
+  size_t stashsz = atoi(std::string(wp, bp).c_str());
+  size_t cacheline_sz = atoi(bp);
 
-  // hardcoded
-  stashsz = 10000;
-  return new oram_sim_t(blocksz, stashsz);
+  return new oram_sim_t(bucketsz, stashsz, mem_mb, cacheline_sz);
 }
 
 void oram_sim_t::init()
 {
   stash = new uint64_t[stashsz*sizeof(uint64_t)];
 
+/*
+  // In case of MemSize = 4MB,
+
   tree_height = 14;
   tree_leaves = pow(2, tree_height); // 16384
   tree_nodes = pow(2, tree_height+1) - 1; // 32767 
+
+*/
+  
+  num_of_blocks = mem_mb * 1024 * 1024 / cacheline_sz / bucketsz;
+  tree_height = log2(num_of_blocks);
+
+  if (DEBUG) std::cout << "Tree height is " << tree_height << std::endl;
+
+  tree_leaves = pow(2, tree_height); 
+  tree_nodes = pow(2, tree_height+1) - 1; 
 
   // TODO add randomness on initial assignment --------------------------
 
@@ -68,7 +82,7 @@ void oram_sim_t::init()
     std::cout << "init() " << std::endl;
 
     std::cout << "printing position map : bid -> leaf_id" << std::endl;
-    for (bid = 0; bid < 16384; bid++) {
+    for (bid = 0; bid < num_of_blocks; bid++) {
         std::cout << "block " << std::dec << bid << " -> " << position_map[bid] << std::endl;
     }
 
@@ -125,8 +139,7 @@ void oram_sim_t::print_stash()
 
 uint64_t oram_sim_t::get_block_id(uint64_t addr) 
 {
-    // hardcoded
-    return (addr - 0x80000000) / 256;
+    return (addr - 0x80000000) / cacheline_sz;
 }
 
 bool oram_sim_t::is_leaf(uint64_t leaf)
@@ -283,7 +296,7 @@ void oram_sim_t::access(uint64_t addr, size_t bytes, bool store)
     uint64_t block_id = get_block_id(addr);
 
     assert ( block_id >= 0 );
-    assert ( block_id < 16384 ); 
+    assert ( block_id < num_of_blocks ); 
 
     uint64_t leaf, new_leaf;
 

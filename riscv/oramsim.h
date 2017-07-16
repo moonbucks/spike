@@ -10,13 +10,13 @@
 class oram_sim_t
 {
  public:
-  oram_sim_t(size_t blocksz, size_t stashsz);
+  oram_sim_t(size_t bucketsz, size_t stashsz, size_t mem_mb, size_t cacheline_sz);
   virtual ~oram_sim_t();
 
   void access(uint64_t addr, size_t bytes, bool store);
   void print_stats();
 
-  static oram_sim_t* construct(const char* config);
+  static oram_sim_t* construct(const char* config, size_t mem_mb);
 
  protected:
   void print_stash();
@@ -27,8 +27,12 @@ class oram_sim_t
   void stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf);
   bool is_leaf(uint64_t leaf);
 
-  size_t blocksz;
+  size_t bucketsz;
   size_t stashsz;
+  size_t mem_mb;
+  size_t cacheline_sz;
+
+  size_t num_of_blocks;
 
   uint64_t* stash;
   // store block_id temporary 
