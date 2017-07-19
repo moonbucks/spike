@@ -6,6 +6,7 @@
 #include <map>
 #include <cstdint>
 #include <assert.h>
+#include <DRAMSim.h>
 
 class oram_sim_t
 {
@@ -15,6 +16,7 @@ class oram_sim_t
 
   void access(uint64_t addr, size_t bytes, bool store);
   void print_stats();
+  void set_dram(DRAMSim::MultiChannelMemorySystem* mem) { dram = mem; }
 
   static oram_sim_t* construct(const char* config, size_t mem_mb);
 
@@ -26,6 +28,8 @@ class oram_sim_t
   void load_path_to_stash(uint64_t leaf);
   void stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf);
   bool is_leaf(uint64_t leaf);
+
+  DRAMSim::MultiChannelMemorySystem *dram;
 
   size_t bucketsz;
   size_t stashsz;
@@ -57,5 +61,19 @@ class oram_sim_t
 
   void init();
 };
-
+/*
+class dram_sim_t : public MultiChannelMemorySystem
+{
+  public:
+    dram_sim_t(const char* config) : MultiChannelMemorySystem(config, "D$") {}
+    bool interested_in_range(uint64_t begin, uint64_t end, access_type type)
+    {
+        return type == LOAD || type == STORE;
+    }
+    void trace(uint64_t addr, size_t bytes, access_type type) 
+    {
+      if (type == LOAD || type == STORE) dram->addTransaction(type == STORE, addr);
+    }
+};
+*/
 #endif

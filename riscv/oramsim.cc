@@ -4,7 +4,6 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include <DRAMSim.h>
 #define DEBUG 0
 
 oram_sim_t::oram_sim_t(size_t _bucketsz, size_t _stashsz, size_t _mem_mb, size_t _cacheline_sz)

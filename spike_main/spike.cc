@@ -13,6 +13,9 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <DRAMSim.h>
+
+#define DRAM_DEBUG 1
 
 static void help()
 {
@@ -43,6 +46,7 @@ int main(int argc, char** argv)
   bool histogram = false;
   bool log = false;
   bool dump_config_string = false;
+  bool dramsim = false;
   size_t nprocs = 1;
   size_t mem_mb = 0;
   //size_t blocksz = 4; // default oram block size is 4;
@@ -50,6 +54,7 @@ int main(int argc, char** argv)
   std::unique_ptr<dcache_sim_t> dc;
   std::unique_ptr<cache_sim_t> l2;
   std::unique_ptr<oram_sim_t> oram;
+  DRAMSim::MultiChannelMemorySystem *dram;
   std::function<extension_t*()> extension;
   const char* isa = DEFAULT_ISA;
   uint16_t gdb_port = 0;
@@ -74,6 +79,20 @@ int main(int argc, char** argv)
   parser.option(0, "isa", 1, [&](const char* s){isa = s;});
   parser.option(0, "extension", 1, [&](const char* s){extension = find_extension(s);});
   parser.option(0, "dump-config-string", 0, [&](const char *s){dump_config_string = true;});
+  parser.option(0, "dramsim", 0, [&](const char *s){dramsim = true;
+    //dram = DRAMSim::getMemorySystemInstance("ini/DDR2_micron_16M_8b_x8_sg3E.ini", "system.ini", "..", "example_app", 16384); 
+    dram = DRAMSim::getMemorySystemInstance("/home/user/riscv/rocket-chip/riscv-tools/riscv-isa-sim/DRAMSim2/ini/DDR2_micron_16M_8b_x8_sg3E.ini", 
+        "/home/user/riscv/rocket-chip/riscv-tools/riscv-isa-sim/DRAMSim2/system.ini", ".", 
+        "/home/user/riscv/rocket-chip/riscv-tools/riscv-isa-sim/DRAMSim2/example_app", 16384); 
+
+    /* // TODO Define and register callbacks if needed
+
+    TransactionCompleteCB *read_cb = new Callback<some_object, void, unsigned, uint64_t, uint64_t>(&obj, &some_object::read_complete); 
+    TransactionCompleteCB *write_cb = new Callback<some_object, void, unsigned, uint64_t, uint64_t>(&obj, &some_object::write_complete);
+
+    dram->RegisterCallbacks(read_cb, write_cb, power_callback);
+    */
+    });
   parser.option(0, "extlib", 1, [&](const char *s){
     void *lib = dlopen(s, RTLD_NOW | RTLD_GLOBAL);
     if (lib == NULL) {
@@ -96,12 +115,26 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  if (dram && DRAM_DEBUG) {
+    printf("dram test\n");
+
+    dram->addTransaction(false, 0x100001UL);
+    dram->addTransaction(false, 1LL<<33 | 0x100001UL);
+    for (int i=0; i<5; i++) dram->update();
+
+    dram->addTransaction(true, 0x900012);
+    for (int i=0; i<45; i++) dram->update();
+
+    dram->printStats(true);
+  }
+
   if (!*argv1)
     help();
 
   if (ic && l2) ic->set_miss_handler(&*l2);
   if (dc && l2) dc->set_miss_handler(&*l2);
   if (l2 && oram) l2->set_oram_handler(&*oram);
+  if (dram) oram->set_dram(&*dram);
   for (size_t i = 0; i < nprocs; i++)
   {
     if (ic) s.get_core(i)->get_mmu()->register_memtracer(&*ic);
@@ -112,5 +145,6 @@ int main(int argc, char** argv)
   s.set_debug(debug);
   s.set_log(log);
   s.set_histogram(histogram);
-  return s.run();
+  //return s.run();
+  return true;
 }
