@@ -6,7 +6,7 @@
 #include <map>
 #include <cstdint>
 #include <assert.h>
-#include <DRAMSim.h>
+#include <dramsim.h>
 
 class oram_sim_t
 {
@@ -16,7 +16,7 @@ class oram_sim_t
 
   void access(uint64_t addr, size_t bytes, bool store);
   void print_stats();
-  void set_dram(DRAMSim::MultiChannelMemorySystem* mem) { dram = mem; }
+  void set_dram_handler(dram_sim_t* dh) { dram_handler = dh; }
 
   static oram_sim_t* construct(const char* config, size_t mem_mb);
 
@@ -25,11 +25,12 @@ class oram_sim_t
   void print_path(uint64_t leaf);
   bool block_is_in_stash(uint64_t block_id);
   uint64_t get_block_id(uint64_t addr);
+  uint64_t block_id_to_addr(uint64_t block_id); 
   void load_path_to_stash(uint64_t leaf);
   void stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf);
   bool is_leaf(uint64_t leaf);
 
-  DRAMSim::MultiChannelMemorySystem *dram;
+  dram_sim_t* dram_handler;
 
   size_t bucketsz;
   size_t stashsz;
@@ -61,19 +62,7 @@ class oram_sim_t
 
   void init();
 };
-/*
-class dram_sim_t : public MultiChannelMemorySystem
-{
-  public:
-    dram_sim_t(const char* config) : MultiChannelMemorySystem(config, "D$") {}
-    bool interested_in_range(uint64_t begin, uint64_t end, access_type type)
-    {
-        return type == LOAD || type == STORE;
-    }
-    void trace(uint64_t addr, size_t bytes, access_type type) 
-    {
-      if (type == LOAD || type == STORE) dram->addTransaction(type == STORE, addr);
-    }
-};
-*/
+
+
+
 #endif

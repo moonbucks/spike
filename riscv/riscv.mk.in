@@ -19,6 +19,7 @@ riscv_hdrs = \
 	encoding.h \
 	cachesim.h \
     oramsim.h \
+    dramsim.h \
 	memtracer.h \
 	tracer.h \
 	extension.h \

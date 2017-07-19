@@ -142,6 +142,11 @@ uint64_t oram_sim_t::get_block_id(uint64_t addr)
     return (addr - 0x80000000) / cacheline_sz;
 }
 
+uint64_t oram_sim_t::block_id_to_addr(uint64_t block_id)
+{
+    return block_id * cacheline_sz + 0x80000000;
+}
+
 bool oram_sim_t::is_leaf(uint64_t leaf)
 {
     return leaf >= tree_leaves && leaf <= tree_nodes;
@@ -150,12 +155,15 @@ bool oram_sim_t::is_leaf(uint64_t leaf)
 void oram_sim_t::load_path_to_stash(uint64_t leaf) 
 {
     int i, s, cur;
+    uint64_t addr;
 
     assert ( is_leaf(leaf) );
     //assert ( stash[0..tree_height] is cleared );
 
     for (s= tree_height, cur=leaf; s>=0; s--) {
         stash[s] = oram_tree[cur];
+        addr = block_id_to_addr(oram_tree[cur]);
+        dram_handler->access(addr, cacheline_sz, LOAD);        
         cur = cur / 2;
     }
 
@@ -266,9 +274,11 @@ void oram_sim_t::stash_write_back(uint64_t leaf, uint64_t bid, uint64_t new_leaf
     }
 
     //int cur, stack_cursor; 
-    uint64_t cur, stack_cursor; 
+    uint64_t cur, stack_cursor, addr; 
     for (stack_cursor= tree_height, cur=leaf; stack_cursor>=0; stack_cursor--) {
         oram_tree[cur] = stash[stack_cursor];
+        addr = block_id_to_addr(oram_tree[cur]);
+        dram_handler->access(addr, cacheline_sz, STORE);
         stash[stack_cursor] = -1;
         if (DEBUG) std::cout << std::dec << "sid: " << stack_cursor << ", cur_node: " << cur 
             << " contains block: " << (int64_t)oram_tree[cur] << std::endl;

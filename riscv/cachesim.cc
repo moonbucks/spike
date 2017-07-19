@@ -157,11 +157,7 @@ void cache_sim_t::access(uint64_t addr, size_t bytes, bool store)
   if (miss_handler)
     miss_handler->access(addr & ~(linesz-1), linesz, false);
   else if (oram_handler && addr >= 0x80000000 && addr < (0x80000000 + 4194304)) {
-    // only for: addr >= DRAM_BASE && addr < DRAM_BASE + memsze 
-/*
-    std::cout << std::hex << addr ;
-    std::cout << " " << name << " " << std::endl;
-*/
+    // TODO change the if condition ..;; 
     oram_accesses++;
     oram_handler->access(addr, linesz, false);
   }
