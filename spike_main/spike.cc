@@ -150,5 +150,13 @@ int main(int argc, char** argv)
   s.set_debug(debug);
   s.set_log(log);
   s.set_histogram(histogram);
-  return s.run();
+  s.run();
+
+
+  for( int cycle=0; cycle<100000; cycle++) dram->update();
+  
+  dram->printStats(true);
+
+  return 0;
+  //return s.run();
 }

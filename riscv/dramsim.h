@@ -18,7 +18,11 @@ class dram_sim_t
 
   void access(uint64_t addr, size_t bytes, access_type type) 
   {
-    if (type == LOAD || type == STORE) dram->addTransaction(type == STORE, addr);
+    // Request size = 32B
+    int i, loop = bytes / 32;
+    if (type == LOAD || type == STORE) {
+        for (i=0; i<loop; i++) dram->addTransaction(type == STORE, addr + 32 * i);
+    }
   }
   void set_dram(DRAMSim::MultiChannelMemorySystem* mem) { dram = mem; }
 
